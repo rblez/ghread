@@ -6,21 +6,33 @@ from typing import Optional
 
 from app.config import settings
 from app.github.fetcher import (
-    fetch_repo_index, fetch_file_content,
-    fetch_issues, fetch_pulls, fetch_releases, fetch_commits,
-    fetch_contributors, fetch_tags, fetch_languages, search_code,
+    fetch_repo_index,
+    fetch_file_content,
+    fetch_issues,
+    fetch_pulls,
+    fetch_releases,
+    fetch_commits,
+    fetch_contributors,
+    fetch_tags,
+    fetch_languages,
+    search_code,
 )
 from app.models.responses import (
-    RepoIndexResponse, FileContentResponse, HealthResponse,
-    IssuesResponse, PullsResponse, ReleasesResponse, CommitsResponse,
-    ContributorsResponse, TagsResponse, LanguagesResponse, SearchCodeResponse,
+    HealthResponse,
+    IssuesResponse,
+    PullsResponse,
+    ReleasesResponse,
+    CommitsResponse,
+    ContributorsResponse,
+    TagsResponse,
+    LanguagesResponse,
+    SearchCodeResponse,
 )
-
 
 app = FastAPI(
     title="GitHub Repo Reader API",
     description="REST API proxy to fetch GitHub repository trees and file contents for AI Agent consumption.",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 app.add_middleware(
@@ -37,7 +49,7 @@ api_key_query = APIKeyQuery(name="key", auto_error=False)
 
 def verify_api_key(
     auth_header: Optional[str] = Security(api_key_header),
-    query_key: Optional[str] = Security(api_key_query)
+    query_key: Optional[str] = Security(api_key_query),
 ):
     if not settings.API_KEY:
         return
@@ -52,7 +64,7 @@ def verify_api_key(
     if not token or token != settings.API_KEY:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing API key."
+            detail="Invalid or missing API key.",
         )
 
 
@@ -60,7 +72,7 @@ def _parse_repo(repo: str):
     if not repo or "/" not in repo:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid repository format. Must be 'owner/repo'."
+            detail="Invalid repository format. Must be 'owner/repo'.",
         )
     parts = repo.split("/", 1)
     return parts[0], parts[1]
@@ -73,15 +85,13 @@ def _handle_github_error(e: Exception):
         raise HTTPException(status_code=status_code, detail=detail)
     raise HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail=f"An error occurred: {str(e)}"
+        detail=f"An error occurred: {str(e)}",
     )
 
 
 @app.get("/", dependencies=[Depends(verify_api_key)])
 async def get_repo_or_file(
-    repo: str,
-    path: Optional[str] = None,
-    ref: Optional[str] = None
+    repo: str, path: Optional[str] = None, ref: Optional[str] = None
 ):
     owner, repo_name = _parse_repo(repo)
     try:
@@ -93,13 +103,15 @@ async def get_repo_or_file(
         _handle_github_error(e)
 
 
-@app.get("/issues", response_model=IssuesResponse, dependencies=[Depends(verify_api_key)])
+@app.get(
+    "/issues", response_model=IssuesResponse, dependencies=[Depends(verify_api_key)]
+)
 async def get_issues(
     repo: str,
     state: str = "open",
     sort: str = "created",
     direction: str = "desc",
-    per_page: int = 20
+    per_page: int = 20,
 ):
     owner, repo_name = _parse_repo(repo)
     try:
@@ -114,7 +126,7 @@ async def get_pulls(
     state: str = "open",
     sort: str = "created",
     direction: str = "desc",
-    per_page: int = 20
+    per_page: int = 20,
 ):
     owner, repo_name = _parse_repo(repo)
     try:
@@ -123,11 +135,10 @@ async def get_pulls(
         _handle_github_error(e)
 
 
-@app.get("/releases", response_model=ReleasesResponse, dependencies=[Depends(verify_api_key)])
-async def get_releases(
-    repo: str,
-    per_page: int = 20
-):
+@app.get(
+    "/releases", response_model=ReleasesResponse, dependencies=[Depends(verify_api_key)]
+)
+async def get_releases(repo: str, per_page: int = 20):
     owner, repo_name = _parse_repo(repo)
     try:
         return await fetch_releases(owner, repo_name, per_page)
@@ -135,12 +146,10 @@ async def get_releases(
         _handle_github_error(e)
 
 
-@app.get("/commits", response_model=CommitsResponse, dependencies=[Depends(verify_api_key)])
-async def get_commits(
-    repo: str,
-    ref: Optional[str] = None,
-    per_page: int = 20
-):
+@app.get(
+    "/commits", response_model=CommitsResponse, dependencies=[Depends(verify_api_key)]
+)
+async def get_commits(repo: str, ref: Optional[str] = None, per_page: int = 20):
     owner, repo_name = _parse_repo(repo)
     try:
         return await fetch_commits(owner, repo_name, ref, per_page)
@@ -148,11 +157,12 @@ async def get_commits(
         _handle_github_error(e)
 
 
-@app.get("/contributors", response_model=ContributorsResponse, dependencies=[Depends(verify_api_key)])
-async def get_contributors(
-    repo: str,
-    per_page: int = 20
-):
+@app.get(
+    "/contributors",
+    response_model=ContributorsResponse,
+    dependencies=[Depends(verify_api_key)],
+)
+async def get_contributors(repo: str, per_page: int = 20):
     owner, repo_name = _parse_repo(repo)
     try:
         return await fetch_contributors(owner, repo_name, per_page)
@@ -161,10 +171,7 @@ async def get_contributors(
 
 
 @app.get("/tags", response_model=TagsResponse, dependencies=[Depends(verify_api_key)])
-async def get_tags(
-    repo: str,
-    per_page: int = 20
-):
+async def get_tags(repo: str, per_page: int = 20):
     owner, repo_name = _parse_repo(repo)
     try:
         return await fetch_tags(owner, repo_name, per_page)
@@ -172,10 +179,12 @@ async def get_tags(
         _handle_github_error(e)
 
 
-@app.get("/languages", response_model=LanguagesResponse, dependencies=[Depends(verify_api_key)])
-async def get_languages(
-    repo: str
-):
+@app.get(
+    "/languages",
+    response_model=LanguagesResponse,
+    dependencies=[Depends(verify_api_key)],
+)
+async def get_languages(repo: str):
     owner, repo_name = _parse_repo(repo)
     try:
         return await fetch_languages(owner, repo_name)
@@ -183,12 +192,12 @@ async def get_languages(
         _handle_github_error(e)
 
 
-@app.get("/search/code", response_model=SearchCodeResponse, dependencies=[Depends(verify_api_key)])
-async def get_search_code(
-    repo: str,
-    q: str,
-    per_page: int = 20
-):
+@app.get(
+    "/search/code",
+    response_model=SearchCodeResponse,
+    dependencies=[Depends(verify_api_key)],
+)
+async def get_search_code(repo: str, q: str, per_page: int = 20):
     owner, repo_name = _parse_repo(repo)
     try:
         return await search_code(owner, repo_name, q, per_page)

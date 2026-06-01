@@ -30,10 +30,18 @@ async def test_invalid_repo_format(client):
 @pytest.mark.asyncio
 async def test_issues_endpoint(client, mock_github_client):
     mock_github_client.get_issues.return_value = [
-        {"number": 1, "title": "Bug", "state": "open",
-         "created_at": "2024-01-01T00:00:00Z", "updated_at": "2024-01-02T00:00:00Z",
-         "closed_at": None, "labels": [{"name": "bug"}], "body": "desc",
-         "user": {"login": "user"}, "html_url": "https://github.com/o/r/issues/1"}
+        {
+            "number": 1,
+            "title": "Bug",
+            "state": "open",
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-02T00:00:00Z",
+            "closed_at": None,
+            "labels": [{"name": "bug"}],
+            "body": "desc",
+            "user": {"login": "user"},
+            "html_url": "https://github.com/o/r/issues/1",
+        }
     ]
     resp = await client.get("/issues?repo=o/r")
     assert resp.status_code == 200
@@ -47,13 +55,20 @@ async def test_issues_endpoint(client, mock_github_client):
 @pytest.mark.asyncio
 async def test_pulls_endpoint(client, mock_github_client):
     mock_github_client.get_pulls.return_value = [
-        {"number": 1, "title": "Feature", "state": "open",
-         "created_at": "2024-01-01T00:00:00Z", "updated_at": "2024-01-02T00:00:00Z",
-         "merged_at": None, "body": "desc",
-         "user": {"login": "user"},
-         "head": {"ref": "feature"}, "base": {"ref": "main"},
-         "draft": False,
-         "html_url": "https://github.com/o/r/pull/1"}
+        {
+            "number": 1,
+            "title": "Feature",
+            "state": "open",
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-02T00:00:00Z",
+            "merged_at": None,
+            "body": "desc",
+            "user": {"login": "user"},
+            "head": {"ref": "feature"},
+            "base": {"ref": "main"},
+            "draft": False,
+            "html_url": "https://github.com/o/r/pull/1",
+        }
     ]
     resp = await client.get("/pulls?repo=o/r")
     assert resp.status_code == 200
@@ -66,10 +81,15 @@ async def test_pulls_endpoint(client, mock_github_client):
 @pytest.mark.asyncio
 async def test_releases_endpoint(client, mock_github_client):
     mock_github_client.get_releases.return_value = [
-        {"tag_name": "v1.0.0", "name": "Release v1.0.0", "body": "notes",
-         "prerelease": False, "created_at": "2024-01-01T00:00:00Z",
-         "published_at": "2024-01-02T00:00:00Z",
-         "html_url": "https://github.com/o/r/releases/tag/v1.0.0"}
+        {
+            "tag_name": "v1.0.0",
+            "name": "Release v1.0.0",
+            "body": "notes",
+            "prerelease": False,
+            "created_at": "2024-01-01T00:00:00Z",
+            "published_at": "2024-01-02T00:00:00Z",
+            "html_url": "https://github.com/o/r/releases/tag/v1.0.0",
+        }
     ]
     resp = await client.get("/releases?repo=o/r")
     assert resp.status_code == 200
@@ -81,11 +101,19 @@ async def test_releases_endpoint(client, mock_github_client):
 @pytest.mark.asyncio
 async def test_commits_endpoint(client, mock_github_client):
     mock_github_client.get_commits.return_value = [
-        {"sha": "abc123",
-         "commit": {"message": "fix: stuff",
-                     "author": {"name": "User", "email": "u@c", "date": "2024-01-01T00:00:00Z"}},
-         "author": {"login": "user"},
-         "html_url": "https://github.com/o/r/commit/abc123"}
+        {
+            "sha": "abc123",
+            "commit": {
+                "message": "fix: stuff",
+                "author": {
+                    "name": "User",
+                    "email": "u@c",
+                    "date": "2024-01-01T00:00:00Z",
+                },
+            },
+            "author": {"login": "user"},
+            "html_url": "https://github.com/o/r/commit/abc123",
+        }
     ]
     resp = await client.get("/commits?repo=o/r&ref=main")
     assert resp.status_code == 200
@@ -99,8 +127,12 @@ async def test_commits_endpoint(client, mock_github_client):
 @pytest.mark.asyncio
 async def test_contributors_endpoint(client, mock_github_client):
     mock_github_client.get_contributors.return_value = [
-        {"login": "user1", "avatar_url": "https://avatars/1",
-         "html_url": "https://github.com/user1", "contributions": 42}
+        {
+            "login": "user1",
+            "avatar_url": "https://avatars/1",
+            "html_url": "https://github.com/user1",
+            "contributions": 42,
+        }
     ]
     resp = await client.get("/contributors?repo=o/r")
     assert resp.status_code == 200
@@ -134,9 +166,13 @@ async def test_search_code_endpoint(client, mock_github_client):
     mock_github_client.search_code.return_value = {
         "total_count": 1,
         "items": [
-            {"name": "main.py", "path": "app/main.py",
-             "html_url": "https://github.com/o/r/blob/main/app/main.py", "sha": "abc"}
-        ]
+            {
+                "name": "main.py",
+                "path": "app/main.py",
+                "html_url": "https://github.com/o/r/blob/main/app/main.py",
+                "sha": "abc",
+            }
+        ],
     }
     resp = await client.get("/search/code?repo=o/r&q=import")
     assert resp.status_code == 200
@@ -158,10 +194,16 @@ async def test_github_api_error(client, mock_github_client):
 @pytest.mark.asyncio
 async def test_repo_index_endpoint(client, mock_github_client):
     mock_github_client.get_repo.return_value = {
-        "full_name": "o/r", "description": "desc", "default_branch": "main",
-        "stargazers_count": 10, "language": "Python", "topics": ["api"],
-        "created_at": "2024-01-01T00:00:00Z", "updated_at": "2024-01-02T00:00:00Z",
-        "license": {"spdx_id": "MIT"}, "private": False,
+        "full_name": "o/r",
+        "description": "desc",
+        "default_branch": "main",
+        "stargazers_count": 10,
+        "language": "Python",
+        "topics": ["api"],
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-02T00:00:00Z",
+        "license": {"spdx_id": "MIT"},
+        "private": False,
     }
     mock_github_client.get_branches.return_value = ["main"]
     mock_github_client.get_tree.return_value = {
@@ -180,7 +222,9 @@ async def test_repo_index_endpoint(client, mock_github_client):
 async def test_file_content_endpoint(client, mock_github_client):
     content = base64.b64encode(b"print('hello')").decode()
     mock_github_client.get_file_content.return_value = {
-        "size": 14, "encoding": "base64", "content": content
+        "size": 14,
+        "encoding": "base64",
+        "content": content,
     }
     resp = await client.get("/?repo=o/r&path=main.py")
     assert resp.status_code == 200
@@ -193,7 +237,9 @@ async def test_file_content_endpoint(client, mock_github_client):
 async def test_binary_file_content(client, mock_github_client):
     content = base64.b64encode(b"\x00\x01\x02\xff").decode()
     mock_github_client.get_file_content.return_value = {
-        "size": 4, "encoding": "base64", "content": content
+        "size": 4,
+        "encoding": "base64",
+        "content": content,
     }
     resp = await client.get("/?repo=o/r&path=file.bin")
     assert resp.status_code == 200

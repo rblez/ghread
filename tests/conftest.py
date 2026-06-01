@@ -1,4 +1,3 @@
-import os
 import pytest
 from unittest.mock import AsyncMock, patch
 
@@ -41,7 +40,7 @@ def make_issue(number, title="Test Issue", state="open", labels=None):
         "created_at": "2024-01-01T00:00:00Z",
         "updated_at": "2024-01-02T00:00:00Z",
         "closed_at": None,
-        "labels": [{"name": l} for l in (labels or [])],
+        "labels": [{"name": lb} for lb in (labels or [])],
         "body": "Body text",
         "user": {"login": "testuser"},
         "html_url": f"https://github.com/owner/repo/issues/{number}",

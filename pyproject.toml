@@ -15,6 +15,9 @@ dependencies = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 
+[tool.mypy]
+exclude = "build/"
+
 [dependency-groups]
 dev = [
     "ruff>=0.5.0",
