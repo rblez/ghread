@@ -1,0 +1,15 @@
+README.md
+pyproject.toml
+app/__init__.py
+app/config.py
+app/main.py
+app/github/__init__.py
+app/github/client.py
+app/github/fetcher.py
+app/models/__init__.py
+app/models/responses.py
+ghread_api.egg-info/PKG-INFO
+ghread_api.egg-info/SOURCES.txt
+ghread_api.egg-info/dependency_links.txt
+ghread_api.egg-info/requires.txt
+ghread_api.egg-info/top_level.txt
