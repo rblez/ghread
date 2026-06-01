@@ -1,4 +1,4 @@
-# ghread
+# GHread
 
 **Repo**: `rblez/ghread` — FastAPI proxy that fetches GitHub repo data for AI agents.
 
