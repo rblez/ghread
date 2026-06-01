@@ -1,120 +1,95 @@
-# ghread-api
+# README.md
 
-REST API HTTP server in Python/FastAPI that acts as a proxy for GitHub. It enables AI agents to read repositories completely by using a two-step pattern:
-1. **Get index**: Retrieve the entire files & folders structure (`GET /?repo=owner/repo`).
-2. **Read files**: Read specific files on demand (`GET /?repo=owner/repo&path=path/to/file`).
+[![](https://img.shields.io/github/actions/workflow/status/rblez/ghread/ci.yml?branch=main&label=CI&logo=github)](https://github.com/rblez/ghread/actions)
+[![](https://img.shields.io/github/v/tag/rblez/ghread?label=version)](https://github.com/rblez/ghread/releases)
+[![](https://img.shields.io/github/license/rblez/ghread)](https://github.com/rblez/ghread/blob/main/LICENSE)
 
-## Features
+# ghread – GitHub Repo Reader API
 
-- **FastAPI**: High performance, fully async, automatic OpenAPI interactive docs (`/docs`).
-- **Proxying & Authorization**: Secure your endpoint using an `API_KEY` of your choice.
-- **Support for branches**: Supply an optional `ref=branch-name` query parameter.
-- **Binary detection**: Automatically skips printing raw bytes for binary files (e.g. images, fonts, binaries) returning `encoding: "binary"` and `content: null`.
-- **Easy deployment**: Native Docker support, ready for immediate deployment on Railway, Fly.io, or any VPS.
+**A fast, production‑ready REST proxy written in Python 3.12 + FastAPI, powered by `uv`.**
+
+It enables AI agents (or any client) to fetch an entire repository structure and file contents without needing direct GitHub access.
 
 ---
 
-## Authentication
+## ✨ Features
 
-All endpoints require authentication (if `API_KEY` is set in environment variables). You can authenticate in two ways:
-
-1. **Authorization Header**:
-   ```http
-   Authorization: Bearer <your_api_key>
-   ```
-2. **Query Parameter**:
-   ```http
-   GET /?repo=owner/repo&key=<your_api_key>
-   ```
-
----
-
-## Endpoints
-
-### 1. Get Repository Index
-Returns repository metadata, default branch, all branches list, tree items containing file sizes and types, and the decoded contents of the `README` file if available.
-
-- **Request**:
-  ```http
-  GET /?repo=owner/repo
-  ```
-- **Response** (JSON):
-  ```json
-  {
-    "repo": {
-      "full_name": "owner/repo",
-      "description": "Repo description",
-      "default_branch": "main",
-      "stars": 42,
-      "language": "Python",
-      "topics": ["ai", "fastapi"],
-      "created_at": "2024-01-01T00:00:00Z",
-      "updated_at": "2026-05-01T00:00:00Z",
-      "license": "MIT",
-      "private": false
-    },
-    "tree": [
-      { "path": "README.md", "type": "blob", "size": 1204 },
-      { "path": "src", "type": "tree", "size": null },
-      { "path": "src/main.py", "type": "blob", "size": 348 }
-    ],
-    "branches": ["main", "dev"],
-    "readme": "# My Project..."
-  }
-  ```
-
-### 2. Get Specific File Content
-Returns the content of a file, un-truncated, decoded from Base64.
-
-- **Request**:
-  ```http
-  GET /?repo=owner/repo&path=src/main.py
-  ```
-- **Response** (JSON):
-  ```json
-  {
-    "repo": "owner/repo",
-    "path": "src/main.py",
-    "size": 348,
-    "encoding": "utf-8",
-    "content": "import os\n...\n",
-    "note": null
-  }
-  ```
-
-### 3. Health Check
-- **Request**:
-  ```http
-  GET /health
-  ```
-- **Response**:
-  ```json
-  {
-    "status": "ok",
-    "version": "1.0.0"
-  }
-  ```
+- **Two‑step consumption** – first fetch the repo index (tree), then request individual files on demand.
+- **Full GitHub data** – supports **issues**, **releases**, **commits** and branch listings.
+- **Secure API key** – protect the public endpoint with a custom `API_KEY`.
+- **Async & ultra‑fast** – built on `httpx` + `uv` for rapid dependency installation.
+- **Docker & Railway ready** – multi‑stage Dockerfile, `railway.toml`, and CI workflow.
+- **Rate limiting** – 60 requests per minute per IP, with `X‑RateLimit‑Remaining` header.
+- **In‑memory cache** – tree and file responses cached for 5 minutes.
+- **Structured logging** – `loguru` outputs JSON‑compatible logs.
+- **Comprehensive CI** – lint (`ruff`), format (`black`), type checking (`mypy`), tests (`pytest`), and Docker build.
 
 ---
 
-## Configuration & Environment Variables
+## 📦 Quick start (local)
 
-Copy `.env.example` to `.env` and set the variables:
-- `GITHUB_TOKEN`: A GitHub personal access token (Read-only for public/private repos metadata & contents).
-- `API_KEY`: The API key protecting your proxy service.
-- `PORT`: Server port (defaults to `8000`).
-
----
-
-## Local Development
-
-Using python:
 ```bash
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+# clone the repo
+git clone https://github.com/rblez/ghread.git && cd ghread
+
+# copy the example env and set your secrets
+cp .env.example .env
+# edit .env → add GITHUB_TOKEN and API_KEY
+
+# install uv (if not already)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# install deps and run
+uv sync
+uv run uvicorn app.main:app --reload --port 8000
 ```
 
-Using Docker Compose:
+Open http://localhost:8000/docs for the OpenAPI UI.
+
+---
+
+## 🚀 Deploy to Railway
+
+1. Create a new project on Railway and link the GitHub repository `rblez/ghread`.
+2. Add the following **Environment Variables** in Railway:
+   - `GITHUB_TOKEN` – your personal access token (read‑only).
+   - `API_KEY` – secret token for your clients.
+   - `PORT` – default `8000` (Railway will override automatically).
+3. Railway will detect the `Dockerfile` and build the image automatically.
+
+---
+
+## 🔗 API Endpoints
+
+| Endpoint | Description |
+|---|---|
+| `GET /?repo=<owner/repo>` | Returns repo metadata, full tree, branches, and README. |
+| `GET /?repo=<owner/repo>&path=<file>` | Returns the complete file content (utf‑8 or binary flag). |
+| `GET /issues?repo=<owner/repo>` | List open issues (title, state, created_at). |
+| `GET /releases?repo=<owner/repo>` | List releases (tag, name, body). |
+| `GET /commits?repo=<owner/repo>&ref=<branch>` | List latest 20 commits on the given ref. |
+| `GET /health` | Health check. |
+
+All endpoints require the API key either via `Authorization: Bearer <key>` header **or** `?key=<key>` query param.
+
+---
+
+## 🧪 Running tests
+
 ```bash
-docker-compose up --build
+uv run pytest
 ```
+
+Test coverage is enforced at **≥85 %**.
+
+---
+
+## 📚 Contributing
+
+Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to propose changes, run tests, and submit pull requests.
+
+---
+
+## 📜 License
+
+MIT – see the [LICENSE](LICENSE) file for details.
