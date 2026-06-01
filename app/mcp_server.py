@@ -1,4 +1,9 @@
-from mcp.server.fastmcp import FastMCP
+"""MCP-compatible JSON-RPC endpoint for ghread.
+
+Implements the Model Context Protocol (Streamable HTTP transport)
+using the existing ghread fetcher functions, without external dependencies.
+"""
+
 from app.github.fetcher import (
     fetch_repo_index,
     fetch_file_content,
@@ -12,10 +17,202 @@ from app.github.fetcher import (
     search_code as fetch_search_code,
 )
 
-mcp = FastMCP(
-    "ghread",
-    instructions="GitHub Repo Reader MCP Server — Read GitHub repositories without direct API access.",
-)
+TOOLS = [
+    {
+        "name": "read_repo_index",
+        "description": "Get full repository metadata, recursive file tree, branches list, and README content.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo": {
+                    "type": "string",
+                    "description": "Repository in owner/name format",
+                },
+                "ref": {
+                    "type": "string",
+                    "description": "Branch/tag/commit (optional)",
+                },
+            },
+            "required": ["repo"],
+        },
+    },
+    {
+        "name": "read_file",
+        "description": "Read a single file's content. Returns utf-8 decoded text or binary flag.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo": {
+                    "type": "string",
+                    "description": "Repository in owner/name format",
+                },
+                "path": {
+                    "type": "string",
+                    "description": "File path within the repository",
+                },
+                "ref": {
+                    "type": "string",
+                    "description": "Branch/tag/commit (optional)",
+                },
+            },
+            "required": ["repo", "path"],
+        },
+    },
+    {
+        "name": "list_issues",
+        "description": "List issues in a repository.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo": {
+                    "type": "string",
+                    "description": "Repository in owner/name format",
+                },
+                "state": {
+                    "type": "string",
+                    "enum": ["open", "closed", "all"],
+                    "default": "open",
+                },
+                "sort": {
+                    "type": "string",
+                    "enum": ["created", "updated", "comments"],
+                    "default": "created",
+                },
+                "direction": {
+                    "type": "string",
+                    "enum": ["asc", "desc"],
+                    "default": "desc",
+                },
+                "per_page": {"type": "integer", "default": 20},
+            },
+            "required": ["repo"],
+        },
+    },
+    {
+        "name": "list_pull_requests",
+        "description": "List pull requests in a repository.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo": {
+                    "type": "string",
+                    "description": "Repository in owner/name format",
+                },
+                "state": {
+                    "type": "string",
+                    "enum": ["open", "closed", "all"],
+                    "default": "open",
+                },
+                "sort": {
+                    "type": "string",
+                    "enum": ["created", "updated", "popularity"],
+                    "default": "created",
+                },
+                "direction": {
+                    "type": "string",
+                    "enum": ["asc", "desc"],
+                    "default": "desc",
+                },
+                "per_page": {"type": "integer", "default": 20},
+            },
+            "required": ["repo"],
+        },
+    },
+    {
+        "name": "list_releases",
+        "description": "List releases in a repository.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo": {
+                    "type": "string",
+                    "description": "Repository in owner/name format",
+                },
+                "per_page": {"type": "integer", "default": 20},
+            },
+            "required": ["repo"],
+        },
+    },
+    {
+        "name": "list_commits",
+        "description": "List recent commits on a branch/ref.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo": {
+                    "type": "string",
+                    "description": "Repository in owner/name format",
+                },
+                "ref": {
+                    "type": "string",
+                    "description": "Branch/tag/commit (optional)",
+                },
+                "per_page": {"type": "integer", "default": 20},
+            },
+            "required": ["repo"],
+        },
+    },
+    {
+        "name": "list_contributors",
+        "description": "List contributors with their commit counts.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo": {
+                    "type": "string",
+                    "description": "Repository in owner/name format",
+                },
+                "per_page": {"type": "integer", "default": 20},
+            },
+            "required": ["repo"],
+        },
+    },
+    {
+        "name": "list_tags",
+        "description": "List git tags with their commit SHA.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo": {
+                    "type": "string",
+                    "description": "Repository in owner/name format",
+                },
+                "per_page": {"type": "integer", "default": 20},
+            },
+            "required": ["repo"],
+        },
+    },
+    {
+        "name": "get_languages",
+        "description": "Get language breakdown as bytes per language.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo": {
+                    "type": "string",
+                    "description": "Repository in owner/name format",
+                },
+            },
+            "required": ["repo"],
+        },
+    },
+    {
+        "name": "search_code",
+        "description": "Search code within a repository.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo": {
+                    "type": "string",
+                    "description": "Repository in owner/name format",
+                },
+                "query": {"type": "string", "description": "Search query"},
+                "per_page": {"type": "integer", "default": 20},
+            },
+            "required": ["repo", "query"],
+        },
+    },
+]
 
 
 def _parse_owner_repo(repo: str) -> tuple[str, str]:
@@ -23,93 +220,104 @@ def _parse_owner_repo(repo: str) -> tuple[str, str]:
     return parts[0], parts[1]
 
 
-@mcp.tool()
-async def read_repo_index(repo: str, ref: str | None = None) -> dict:
-    """Get full repository metadata, recursive file tree, branches list, and README content."""
-    owner, name = _parse_owner_repo(repo)
-    result = await fetch_repo_index(owner, name, ref)
-    return result.model_dump()
+TOOL_HANDLERS = {
+    "read_repo_index": lambda args: fetch_repo_index(
+        *_parse_owner_repo(args["repo"]), args.get("ref")
+    ),
+    "read_file": lambda args: fetch_file_content(
+        *_parse_owner_repo(args["repo"]), args["path"], args.get("ref")
+    ),
+    "list_issues": lambda args: fetch_issues(
+        *_parse_owner_repo(args["repo"]),
+        args.get("state", "open"),
+        args.get("sort", "created"),
+        args.get("direction", "desc"),
+        args.get("per_page", 20),
+    ),
+    "list_pull_requests": lambda args: fetch_pulls(
+        *_parse_owner_repo(args["repo"]),
+        args.get("state", "open"),
+        args.get("sort", "created"),
+        args.get("direction", "desc"),
+        args.get("per_page", 20),
+    ),
+    "list_releases": lambda args: fetch_releases(
+        *_parse_owner_repo(args["repo"]), args.get("per_page", 20)
+    ),
+    "list_commits": lambda args: fetch_commits(
+        *_parse_owner_repo(args["repo"]), args.get("ref"), args.get("per_page", 20)
+    ),
+    "list_contributors": lambda args: fetch_contributors(
+        *_parse_owner_repo(args["repo"]), args.get("per_page", 20)
+    ),
+    "list_tags": lambda args: fetch_tags(
+        *_parse_owner_repo(args["repo"]), args.get("per_page", 20)
+    ),
+    "get_languages": lambda args: fetch_languages(*_parse_owner_repo(args["repo"])),
+    "search_code": lambda args: fetch_search_code(
+        *_parse_owner_repo(args["repo"]), args["query"], args.get("per_page", 20)
+    ),
+}
 
 
-@mcp.tool()
-async def read_file(repo: str, path: str, ref: str | None = None) -> dict:
-    """Read a single file's content. Returns utf-8 decoded text or marks as binary."""
-    owner, name = _parse_owner_repo(repo)
-    result = await fetch_file_content(owner, name, path, ref)
-    return result.model_dump()
+async def handle_mcp_request(body: dict) -> dict:
+    method = body.get("method", "")
+    msg_id = body.get("id")
+    params = body.get("params", {}) or {}
+    arguments = params.get("arguments", {}) if isinstance(params, dict) else {}
 
+    if method == "tools/list":
+        return {
+            "jsonrpc": "2.0",
+            "id": msg_id,
+            "result": {"tools": TOOLS},
+        }
 
-@mcp.tool()
-async def list_issues(
-    repo: str,
-    state: str = "open",
-    sort: str = "created",
-    direction: str = "desc",
-    per_page: int = 20,
-) -> dict:
-    """List issues in a repository. Parameters: state (open/closed/all), sort (created/updated/comments), direction (asc/desc)."""
-    owner, name = _parse_owner_repo(repo)
-    result = await fetch_issues(owner, name, state, sort, direction, per_page)
-    return result.model_dump()
+    if method == "tools/call":
+        tool_name = arguments.get("name", params.get("name", ""))
+        tool_args = arguments.get("arguments", params.get("arguments", {}))
 
+        handler = TOOL_HANDLERS.get(tool_name)
+        if not handler:
+            return {
+                "jsonrpc": "2.0",
+                "id": msg_id,
+                "error": {"code": -32601, "message": f"Tool not found: {tool_name}"},
+            }
 
-@mcp.tool()
-async def list_pull_requests(
-    repo: str,
-    state: str = "open",
-    sort: str = "created",
-    direction: str = "desc",
-    per_page: int = 20,
-) -> dict:
-    """List pull requests in a repository. Includes head/base refs and draft status."""
-    owner, name = _parse_owner_repo(repo)
-    result = await fetch_pulls(owner, name, state, sort, direction, per_page)
-    return result.model_dump()
+        try:
+            result = await handler(tool_args)
+            data = result.model_dump() if hasattr(result, "model_dump") else result
+            return {
+                "jsonrpc": "2.0",
+                "id": msg_id,
+                "result": {
+                    "content": [{"type": "text", "text": str(data)}],
+                },
+            }
+        except Exception as e:
+            return {
+                "jsonrpc": "2.0",
+                "id": msg_id,
+                "error": {"code": -32000, "message": str(e)},
+            }
 
+    if method in ("initialize",):
+        return {
+            "jsonrpc": "2.0",
+            "id": msg_id,
+            "result": {
+                "protocolVersion": "2025-03-26",
+                "capabilities": {"tools": {}},
+                "serverInfo": {"name": "ghread", "version": "1.0.0"},
+            },
+        }
 
-@mcp.tool()
-async def list_releases(repo: str, per_page: int = 20) -> dict:
-    """List releases in a repository with tag name, title, body, and prerelease flag."""
-    owner, name = _parse_owner_repo(repo)
-    result = await fetch_releases(owner, name, per_page)
-    return result.model_dump()
+    if method in ("notifications/initialized", "ping"):
+        return {"jsonrpc": "2.0", "id": msg_id, "result": {}}
 
-
-@mcp.tool()
-async def list_commits(repo: str, ref: str | None = None, per_page: int = 20) -> dict:
-    """List recent commits on a branch/ref. Returns SHA, message, author, and date."""
-    owner, name = _parse_owner_repo(repo)
-    result = await fetch_commits(owner, name, ref, per_page)
-    return result.model_dump()
-
-
-@mcp.tool()
-async def list_contributors(repo: str, per_page: int = 20) -> dict:
-    """List contributors with their commit counts."""
-    owner, name = _parse_owner_repo(repo)
-    result = await fetch_contributors(owner, name, per_page)
-    return result.model_dump()
-
-
-@mcp.tool()
-async def list_tags(repo: str, per_page: int = 20) -> dict:
-    """List git tags with their commit SHA."""
-    owner, name = _parse_owner_repo(repo)
-    result = await fetch_tags(owner, name, per_page)
-    return result.model_dump()
-
-
-@mcp.tool()
-async def get_languages(repo: str) -> dict:
-    """Get language breakdown as bytes per language (e.g. {'Python': 5000, 'TypeScript': 2000})."""
-    owner, name = _parse_owner_repo(repo)
-    result = await fetch_languages(owner, name)
-    return result.model_dump()
-
-
-@mcp.tool()
-async def search_code(repo: str, query: str, per_page: int = 20) -> dict:
-    """Search code within a repository. Returns matching files with path and URL."""
-    owner, name = _parse_owner_repo(repo)
-    result = await fetch_search_code(owner, name, query, per_page)
-    return result.model_dump()
+    return {
+        "jsonrpc": "2.0",
+        "id": msg_id,
+        "error": {"code": -32601, "message": f"Method not found: {method}"},
+    }
