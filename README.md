@@ -1,0 +1,120 @@
+# ghread-api
+
+REST API HTTP server in Python/FastAPI that acts as a proxy for GitHub. It enables AI agents to read repositories completely by using a two-step pattern:
+1. **Get index**: Retrieve the entire files & folders structure (`GET /?repo=owner/repo`).
+2. **Read files**: Read specific files on demand (`GET /?repo=owner/repo&path=path/to/file`).
+
+## Features
+
+- **FastAPI**: High performance, fully async, automatic OpenAPI interactive docs (`/docs`).
+- **Proxying & Authorization**: Secure your endpoint using an `API_KEY` of your choice.
+- **Support for branches**: Supply an optional `ref=branch-name` query parameter.
+- **Binary detection**: Automatically skips printing raw bytes for binary files (e.g. images, fonts, binaries) returning `encoding: "binary"` and `content: null`.
+- **Easy deployment**: Native Docker support, ready for immediate deployment on Railway, Fly.io, or any VPS.
+
+---
+
+## Authentication
+
+All endpoints require authentication (if `API_KEY` is set in environment variables). You can authenticate in two ways:
+
+1. **Authorization Header**:
+   ```http
+   Authorization: Bearer <your_api_key>
+   ```
+2. **Query Parameter**:
+   ```http
+   GET /?repo=owner/repo&key=<your_api_key>
+   ```
+
+---
+
+## Endpoints
+
+### 1. Get Repository Index
+Returns repository metadata, default branch, all branches list, tree items containing file sizes and types, and the decoded contents of the `README` file if available.
+
+- **Request**:
+  ```http
+  GET /?repo=owner/repo
+  ```
+- **Response** (JSON):
+  ```json
+  {
+    "repo": {
+      "full_name": "owner/repo",
+      "description": "Repo description",
+      "default_branch": "main",
+      "stars": 42,
+      "language": "Python",
+      "topics": ["ai", "fastapi"],
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2026-05-01T00:00:00Z",
+      "license": "MIT",
+      "private": false
+    },
+    "tree": [
+      { "path": "README.md", "type": "blob", "size": 1204 },
+      { "path": "src", "type": "tree", "size": null },
+      { "path": "src/main.py", "type": "blob", "size": 348 }
+    ],
+    "branches": ["main", "dev"],
+    "readme": "# My Project..."
+  }
+  ```
+
+### 2. Get Specific File Content
+Returns the content of a file, un-truncated, decoded from Base64.
+
+- **Request**:
+  ```http
+  GET /?repo=owner/repo&path=src/main.py
+  ```
+- **Response** (JSON):
+  ```json
+  {
+    "repo": "owner/repo",
+    "path": "src/main.py",
+    "size": 348,
+    "encoding": "utf-8",
+    "content": "import os\n...\n",
+    "note": null
+  }
+  ```
+
+### 3. Health Check
+- **Request**:
+  ```http
+  GET /health
+  ```
+- **Response**:
+  ```json
+  {
+    "status": "ok",
+    "version": "1.0.0"
+  }
+  ```
+
+---
+
+## Configuration & Environment Variables
+
+Copy `.env.example` to `.env` and set the variables:
+- `GITHUB_TOKEN`: A GitHub personal access token (Read-only for public/private repos metadata & contents).
+- `API_KEY`: The API key protecting your proxy service.
+- `PORT`: Server port (defaults to `8000`).
+
+---
+
+## Local Development
+
+Using python:
+```bash
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+Using Docker Compose:
+```bash
+docker-compose up --build
+```
