@@ -12,6 +12,9 @@ dependencies = [
     "pydantic>=2.6.4",
 ]
 
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
 [dependency-groups]
 dev = [
     "ruff>=0.5.0",
@@ -19,4 +22,5 @@ dev = [
     "mypy>=1.10.0",
     "pytest>=8.0.0",
     "pytest-cov>=5.0.0",
+    "pytest-asyncio>=0.24.0",
 ]
