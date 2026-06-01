@@ -2,6 +2,9 @@ import httpx
 from fastapi import FastAPI, Depends, HTTPException, Security, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader, APIKeyQuery
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 from typing import Optional
 
 from app.config import settings
@@ -28,6 +31,7 @@ from app.models.responses import (
     LanguagesResponse,
     SearchCodeResponse,
 )
+from app.mcp_server import mcp
 
 app = FastAPI(
     title="GitHub Repo Reader API",
@@ -42,6 +46,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount MCP SSE server at /mcp
+_mcp_app = mcp.sse_app()
+
+
+class MCPAuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if settings.API_KEY:
+            key = request.query_params.get("key") or request.headers.get(
+                "Authorization", ""
+            ).removeprefix("Bearer ")
+            if not key or key != settings.API_KEY:
+                return JSONResponse(
+                    status_code=401, content={"error": "Invalid or missing API key."}
+                )
+        return await call_next(request)
+
+
+_mcp_app.add_middleware(MCPAuthMiddleware)
+app.mount("/mcp", _mcp_app)
 
 api_key_header = APIKeyHeader(name="Authorization", auto_error=False)
 api_key_query = APIKeyQuery(name="key", auto_error=False)
